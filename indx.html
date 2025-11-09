@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Content Generator</title>
+    
+    <!-- Load Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load React, ReactDOM, and Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Configure Tailwind to use the 'Inter' font -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+
+    <!-- Custom CSS for the Floating Particle Effect -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+        }
+        
+        /* Animation Keyframes: Subtle floating movement and scale change */
+        @keyframes float-particle {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+            50% { transform: translate(10vw, 15vh) scale(1.1); opacity: 0.4; }
+            100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+        }
+        
+        /* Particle Container: Fixed to the viewport, behind the content */
+        .particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            pointer-events: none; /* Crucial: ensures mouse clicks pass through to content */
+            z-index: 0;
+            /* Add transition for smooth movement when mouse moves */
+            transition: transform 0.2s ease-out;
+        }
+
+        /* Individual Particle Styling */
+        .particle {
+            position: absolute;
+            background: rgba(129, 140, 248, 0.6); /* Semi-transparent Indigo */
+            border-radius: 50%;
+            /* Apply the animation with a bounce effect */
+            animation: float-particle ease-in-out infinite alternate;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Particle Background Elements (10 floating elements) -->
+    <!-- Added ID for JavaScript access -->
+    <div id="particle-container" class="particle-container">
+        <!-- These particles are given random sizes, starting positions, durations, and delays for a non-uniform look -->
+        <div class="particle" style="width: 4px; height: 4px; top: 10%; left: 5%; animation-duration: 15s; animation-delay: 0s;"></div>
+        <div class="particle" style="width: 6px; height: 6px; top: 80%; left: 90%; animation-duration: 18s; animation-delay: 2s;"></div>
+        <div class="particle" style="width: 3px; height: 3px; top: 50%; left: 30%; animation-duration: 12s; animation-delay: 4s;"></div>
+        <div class="particle" style="width: 7px; height: 7px; top: 20%; left: 70%; animation-duration: 20s; animation-delay: 6s;"></div>
+        <div class="particle" style="width: 5px; height: 5px; top: 65%; left: 15%; animation-duration: 14s; animation-delay: 8s;"></div>
+        <div class="particle" style="width: 8px; height: 8px; top: 30%; left: 45%; animation-duration: 22s; animation-delay: 10s;"></div>
+        <div class="particle" style="width: 4px; height: 4px; top: 90%; left: 55%; animation-duration: 16s; animation-delay: 12s;"></div>
+        <div class="particle" style="width: 6px; height: 6px; top: 5%; left: 85%; animation-duration: 19s; animation-delay: 14s;"></div>
+        <div class="particle" style="width: 3px; height: 3px; top: 75%; left: 25%; animation-duration: 11s; animation-delay: 16s;"></div>
+        <div class="particle" style="width: 5px; height: 5px; top: 40%; left: 5%; animation-duration: 25s; animation-delay: 1s;"></div>
+    </div>
+    
+    <!-- The root element where the React application will render -->
+    <div id="root" class="relative z-10"></div> <!-- Added z-10 to ensure content is above particles -->
+
+    <!-- Plain JavaScript for Mouse Movement Effect -->
+    <script>
+      document.addEventListener('mousemove', (e) => {
+          const container = document.getElementById('particle-container');
+          if (!container) return;
+
+          // Calculate center of the screen
+          const centerX = window.innerWidth / 2;
+          const centerY = window.innerHeight / 2;
+
+          // Calculate mouse position relative to center (normalized to -1 to 1)
+          const offsetX = (e.clientX - centerX) / centerX;
+          const offsetY = (e.clientY - centerY) / centerY;
+
+          // Apply a subtle parallax transform (Max movement of 10 pixels in the opposite direction of the mouse)
+          const parallaxX = offsetX * -10; 
+          const parallaxY = offsetY * -10; 
+
+          container.style.transform = `translate(${parallaxX}px, ${parallaxY}px)`;
+      });
+    </script>
+
+    <!-- The React/JSX Code goes here, wrapped in type="text/babel" -->
+    <script type="text/babel">
+        // Define the API parameters 
+        // NOTE: You MUST replace YOUR_API_KEY_HERE with your actual key if running locally outside of the platform environment.
+        const apiKey = "AIzaSyDZGDApcPX6WH3eSzmU1JNHe_p9hCstpfc"; 
+        const MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+
+        // Destructure necessary React hooks
+        const { useState, useCallback, useEffect } = React;
+
+        // Helper component for a simple loading spinner
+        const LoadingSpinner = () => (
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-4 h-4 rounded-full animate-pulse bg-indigo-400"></div>
+            <div className="w-4 h-4 rounded-full animate-pulse bg-indigo-400 delay-100"></div>
+            <div className="w-4 h-4 rounded-full animate-pulse bg-indigo-400 delay-200"></div>
+            <span>Generating...</span>
+          </div>
+        );
+
+        // Main Application Component
+        const App = () => {
+          const [prompt, setPrompt] = useState('Write a short, fun fact about the deepest part of the ocean.');
+          const [response, setResponse] = useState(null);
+          const [isLoading, setIsLoading] = useState(false);
+          const [error, setError] = useState(null);
+
+          // Function to perform the API call with exponential backoff
+          const handleGenerateContent = useCallback(async () => {
+            if (isLoading || !prompt.trim()) return;
+
+            setIsLoading(true);
+            setError(null);
+            setResponse(null);
+
+            const systemInstruction = "You are a friendly and concise knowledge assistant. Summarize the answer in a paragraph.";
+
+            const payload = {
+              contents: [{ parts: [{ text: prompt }] }],
+              // Enable Google Search grounding for factual responses
+              tools: [{ "google_search": {} }], 
+              systemInstruction: {
+                parts: [{ text: systemInstruction }]
+              },
+            };
+
+            let result = null;
+            let successful = false;
+
+            // Implement exponential backoff for robustness
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                const fetchOptions = {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload)
+                };
+
+                const apiResponse = await fetch(API_URL, fetchOptions);
+                
+                if (!apiResponse.ok) {
+                  throw new Error(`HTTP error! status: ${apiResponse.status}`);
+                }
+
+                result = await apiResponse.json();
+                successful = true;
+                break; // Success, exit loop
+
+              } catch (e) {
+                console.error(`Attempt ${attempt + 1} failed:`, e);
+                if (attempt < 2) {
+                  const delay = Math.pow(2, attempt) * 1000;
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                  setError(`Failed to connect to the API after multiple retries. Error: ${e.message}`);
+                }
+              }
+            }
+
+            if (successful && result) {
+              const candidate = result.candidates?.[0];
+
+              if (candidate && candidate.content?.parts?.[0]?.text) {
+                const generatedText = candidate.content.parts[0].text;
+                
+                // Extract grounding sources (citations)
+                let sources = [];
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title);
+                }
+
+                setResponse({ text: generatedText, sources });
+              } else {
+                setError("Generation failed: The response structure was invalid or empty.");
+              }
+            }
+
+            setIsLoading(false);
+          }, [prompt, isLoading]);
+
+          return (
+            <div className="min-h-screen p-4 sm:p-8 flex items-center justify-center">
+              <div className="w-full max-w-4xl bg-gray-800 rounded-xl shadow-2xl p-6 md:p-10">
+                <header className="mb-8 text-center">
+                  <h1 className="text-4xl font-extrabold text-indigo-400 mb-2">
+                    <span role="img" aria-label="gemini icon" className="mr-2">✨</span>
+                    Gemini Content Generator
+                  </h1>
+                  <p className="text-gray-400">Ask any factual question and get a grounded response.</p>
+                </header>
+
+                {/* Input Area */}
+                <div className="mb-6">
+                  <textarea
+                    className="w-full p-4 border border-gray-700 bg-gray-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-white resize-none"
+                    rows="4"
+                    placeholder="Type your query here..."
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* Button */}
+                <div className="flex justify-center mb-10">
+                  <button
+                    onClick={handleGenerateContent}
+                    disabled={isLoading || !prompt.trim()}
+                    className={`w-full sm:w-auto px-8 py-3 rounded-full font-bold transition-all duration-200 shadow-lg ${
+                      isLoading || !prompt.trim()
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-indigo-500 hover:bg-indigo-600 text-white transform hover:scale-105'
+                    }`}
+                  >
+                    {isLoading ? <LoadingSpinner /> : 'Generate Content'}
+                  </button>
+                </div>
+
+                {/* Output and Status Area */}
+                <div className="mt-8">
+                  <h2 className="text-2xl font-semibold text-indigo-300 mb-4 border-b border-gray-700 pb-2">
+                    AI Response
+                  </h2>
+
+                  {error && (
+                    <div className="p-4 bg-red-800 border border-red-600 rounded-lg text-red-100">
+                      <p className="font-bold">Error:</p>
+                      <p>{error}</p>
+                    </div>
+                  )}
+
+                  {response && (
+                    <div className="bg-gray-700 p-6 rounded-lg shadow-inner">
+                      <p className="text-gray-200 whitespace-pre-wrap">{response.text}</p>
+                      
+                      {response.sources.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-600">
+                          <h3 className="text-sm font-medium text-gray-400 mb-2">Sources:</h3>
+                          <ul className="list-disc list-inside text-xs text-gray-400 space-y-1">
+                            {response.sources.slice(0, 3).map((source, index) => (
+                              <li key={index}>
+                                <a 
+                                  href={source.uri} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="hover:text-indigo-400 transition-colors underline"
+                                >
+                                  {source.title || source.uri}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {!isLoading && !response && !error && (
+                    <div className="text-center text-gray-500 p-8 border border-dashed border-gray-700 rounded-lg">
+                      The AI response will appear here after generation.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // Render the React component to the 'root' div
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
